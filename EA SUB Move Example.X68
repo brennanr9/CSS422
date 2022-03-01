@@ -11,7 +11,7 @@ START:                  ; first instruction of program
 
 
     LEA     $101e,A4  *example starting address. This is our current memory pointer as well
-    LEA     $1022,A5  *example end address. These are the same, so we only scan 1 command. The move command below
+    LEA     $1022,A5  *example end address. 
      
 SCAN
     CMP     A5,A4     *have we gone through all the memory. a5 is the end point and a4 is the beginning. We can change this to check differently in the future
