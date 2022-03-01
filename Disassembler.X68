@@ -9,21 +9,20 @@ START:                  ; first instruction of program
 
 * start of main
 
+*------------testing address---------------
+    LEA     $101e,A4  use these 2 address' for testing specific parts of the memory. a4 = beginning. a5 = end
+    LEA     $1022,A5  
+*------------------------------------------
 
-    LEA     $101e,A4  *example starting address. This is our current memory pointer as well
-    LEA     $1022,A5  *example end address. These are the same, so we only scan 1 command. The move command below
-     
-SCAN
+*------------loop that reads the machine code--------  
+*--------------and converts to binary----------------   
+SCAN                  *sets up the loop that will read the machine code  
     CMP     A5,A4     *have we gone through all the memory. a5 is the end point and a4 is the beginning. We can change this to check differently in the future
-    BGT     done      *if so done!
+    BGT     done      *if so we are done!
     lea     $A000,A2  *load the address where the binary version will be held 
     move.w  (A4)+,D0  *move the current value at the memory pointer into d0
     move.b  #16,D7    *set up loop for 16 times / 16 bits to rotate
     bra     STARTLOOP *start loop to convert to binary
-    
-    
-    move   a1,$a2 *HERE: change the EA to see the subroutine work. btw if you change these pay attention to the new memory locations. may need to adjust ending point 
-    move   #1235,$2005    
     
 STARTLOOP
 
@@ -44,11 +43,11 @@ ADDZERO
     MOVE.B  #0,(A2)+        adds zero at current a2 pointer and loops to beginning
     BRA     STARTLOOP    
     
-    
-*this is where we start looking for opcodes but in this case 
-*its a sample move print out. No verification is done, but it is marked
-*where each step of verification can happen. This is a general pattern we 
-*can follow for opcode subroutines
+*------------------------------------------------------
+*-----------------opcode searching starts here---------    
+*this is where we start looking for opcodes. i marked
+*where i think each step of verification can happen. This is a general pattern we 
+*can follow for opcode subroutines. unless anyone has wants to go a different way lmao. This is very brute force way to do this
 *1) read the bits that we need to verify first. Example being reading 3 bits of  source mode
 *   and verify they are valid. If they = 7 then make sure the register is valid
 *2) if you need to do this with destination mode as well do that beforre or after. 
@@ -61,35 +60,14 @@ ADDZERO
 *   Make sure to read the mode bits first before calling either subroutine. This is important, because 
 *   it sets the memory pointer to the correct location after reading the initial 3 bits and storing them in d3
 *7) once this is done the opcode should be fully outputed onto the console and should loop back to scan. 
-*Notes: This example doesn't loop, but should demonstrate the EA subroutines by changing the move opcode above.
-*if there are any problems let me know, or if this code is clunky to read as well I can explain it more. 
-*This is a very brute force way of doing this but we are on a time crunch lol. Finally It's important to make sure 
-*that ALL verification gets done before calling the EA subroutine because you dont want to be printing out the 
-*opcode and then realize its wrong halfway through lmao.
 OpCodeSearch
-    jsr resetvar *this will need to be at the start of every opcode subroutine
+  
+    *START OPCODE SEARCHING HERE
+    
+    bra scan         starts reading next opcode 
+*----------end of searching/main----------------------    
 
-    lea $a002,a2  *loads bits where size starts in oopcode
-    jsr read2bits *adds the two bits up. can do size verification check here
-    move.b d3,size *saves in variable  
-    
-    lea $a00a,a2   *loads address where mode bits start
-    jsr read3bits  *reads the mode bits. After this part is where you can do verification
-    jsr sourcesub     *prints ea
-    lea comma,a1   *prints comma
-    jsr printstr   
-    lea $a007,a2   *loads where destination register starts
-    jsr read3bits *reads register
-    jsr destinationsub
-
-    jsr checkvar    *these will need to be at the end of every opcode that can have mode = 7
-    jsr checkvar2   *we need 2 different types because in the case of move both EA can be absolute words/longs
-    jsr newline
-           
-    
-    
-    bra scan         *end of sample
-*----------end of main---------    
+*----------bit reading subroutines--------------------
 read2bits              *reads 2 bits from pre-set address. Uses data registers d6,d5 and stores result in d3
     move.b  (a2)+,d5
     muls    #2,d5
@@ -112,6 +90,8 @@ read4bits              *reads 4 bits using the same method as read3bits
     jsr     read3bits
     rts
 
+*-----------------------------------------------------
+*-------------------EA source and destination sub-----
 sourcesub              *subroutine that prepares the data for the general ea subroutine. Used when the 
     move.l  d3,d4      *    used when the register is after the mode.
     jsr     read3bits  *first need to move the current mode value out of d3 where it is stored and hold it in d4.
@@ -123,6 +103,7 @@ destinationsub         *does the same thing as sourcesub but the register is bef
     suba   #6,a2
     jsr    read3bits
     move.b d3,d1 
+*---------------------ea subroutine------------------
 easub     *d5 = mode value, d6  = register value
     
     cmp #0,d4   is it dn?
@@ -172,7 +153,8 @@ anpresub                *same thing
     jsr printstr
     jsr anparensub
     rts
-    
+
+*-----------------mode=7 subroutines-----------------------    
 immedietesub            *checks what register the mode is
     cmp #0,d1           *(xxx).W?
     beq xxxw
@@ -233,7 +215,8 @@ dataword                *store word data
 datalong                *store long data
     move.l (a4)+,imdata
     rts
-
+    
+*---------------------printing shortcuts---------------
 printimdata             *prints the imdata and then checks if absolute data also need to be printed
     jsr printspace
     move.l imdata,d1
@@ -278,6 +261,7 @@ newline
     jsr printstr
     rts    
 
+*--------------variable subroutines---------------
 resetvar                 *resets all the variables since the checks rely on them being 0
     move.b #0,size
     move.l #0,absdata
