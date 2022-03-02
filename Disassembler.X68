@@ -10,10 +10,10 @@ START:                  ; first instruction of program
 * start of main
 
 *------------testing address---------------
-    LEA     $101e,A4  use these 2 address' for testing specific parts of the memory. a4 = beginning. a5 = end
-    LEA     $1022,A5  
+    LEA     $100c,A4  use these 2 address' for testing specific parts of the memory. a4 = beginning. a5 = end
+    LEA     $1016,A5  
 *------------------------------------------
-
+    bra scan 
 *------------loop that reads the machine code--------  
 *--------------and converts to binary----------------   
 SCAN                  *sets up the loop that will read the machine code  
@@ -62,12 +62,23 @@ ADDZERO
 *7) once this is done the opcode should be fully outputed onto the console and should loop back to scan. 
 OpCodeSearch
   
-    *START OPCODE SEARCHING HERE
+    *START OPCODE SEARCHING HERE. For adding more opcodes: compare the hex value of whatever opcode you want to jump to with the number in d3 :)
+    jsr newline       *setup to search for opcode
+    lea $a000,a2
+    jsr read4bits
+    
+    
+    cmp #14,d3        *is it lsl,asl,rol?
+    beq lslsub
     
     bra scan         starts reading next opcode 
 *----------end of searching/main----------------------    
 
 *----------bit reading subroutines--------------------
+read1bit
+    move.b  (a2)+,d3
+    rts
+    
 read2bits              *reads 2 bits from pre-set address. Uses data registers d6,d5 and stores result in d3
     move.b  (a2)+,d5
     muls    #2,d5
@@ -91,6 +102,103 @@ read4bits              *reads 4 bits using the same method as read3bits
     rts
 
 *-----------------------------------------------------
+
+*--------------------OpCode Subroutines---------------
+
+*--------------------lsl memory shift-----------------
+lslsub *checks memory shifts first
+    lea $a00a,a2
+    jsr read3bits
+    cmp #2,d3
+    blt lslsub2    *bad addressing mode
+    cmp #7,d3
+    bne lslcont
+    jsr read3bits
+    cmp #4,d3
+    beq lslsub2    *correct mode wrong register#
+    
+lslcont *checking specific bits 11-8. Can be 2 or 3. also need to check bits 7 and 6 to make sure they are = to 3
+    jsr resetvar
+    lea $a004,a2
+    jsr read4bits *get bits 11-8
+    cmp #3,d3
+    bgt lslsub2   *less than 2
+    cmp #2,d3
+    blt lslsub2   *greater than 3
+    jsr read2bits *get bits 7-6
+    cmp #3,d3
+    bne lslsub2   *validation is done now. It has to be lsl or lsr
+    
+    lea ls,a1     *print opcode
+    jsr printstr
+    
+    move.b $a007,d3 *print left or right shift
+    jsr printLorR
+    
+    jsr printspace
+      
+    lea $a00a,a2    *print EA
+    jsr read3bits
+    jsr sourcesub
+    
+    jsr checkvar    *print any absolute or immediete data
+    jsr checkvar2
+    bra scan
+
+*-------------------lsl register shift---------------     
+lslsub2 *checks register shifts. Steps needed: check bits 7-6 and make sure its NOT 3. check bits 4 and 3 and make sure its 1 
+    jsr resetvar
+    lea $a008,a2   checkinng bits 7-6
+    jsr read2bits
+    cmp #3,d3
+    beq  aslsub
+     
+    lea $a00b,a2   checking bits 5-4
+    jsr read2bits
+    cmp #1,d3
+    bne aslsub
+    
+    lea ls,a1      *validation is done print out
+    jsr printstr    
+    
+    lea $a007,a2
+    jsr read1bit
+    jsr printLorR
+    
+    jsr read2bits
+    jsr printSize
+    cmp #0,(a2)    *check if its immediete data stored or a register in bits 11-9
+    beq imShift    * branch if immediete data
+    
+    lea $a004,a2
+    jsr read3bits
+    move.b d3,d1
+    jsr dnsub
+    bra lsl2cont
+    
+imShift  
+    lea $a004,a2
+    jsr read3bits  
+    move.l d3,imdata
+    lea datamode,a1
+    jsr printstr
+    
+lsl2cont    
+    lea comma,a1
+    jsr printstr
+    
+    lea $a00d,a2
+    jsr read3bits
+    move.b d3,d1
+    jsr dnsub
+    
+    jsr checkvar   
+    jsr checkvar2
+    bra scan    
+
+*---------------asl sub mem shift-----------
+aslsub
+    bra scan
 *-------------------EA source and destination sub-----
 sourcesub              *subroutine that prepares the data for the general ea subroutine. Used when the 
     move.l  d3,d4      *    used when the register is after the mode.
@@ -259,14 +367,50 @@ printspace               *prints a tab even though it says space. Could be usefu
 newline
     lea enter,a1
     jsr printstr
-    rts    
+    rts 
 
+printLorR
+    cmp #0,d3
+    beq printR
+    bra printL
+
+printR
+    lea r,a1
+    jsr printstr
+    rts
+
+printL
+    lea l,a1
+    jsr printstr
+    rts
+printSize
+    cmp #0,d3
+    beq printByte
+    cmp #1,d3
+    beq printWord
+    bra PrintLong
+
+printByte
+    lea byte,a1
+    jsr printstr
+    rts       
+
+printWord
+    lea word,a1
+    jsr printstr
+    rts 
+    
+printLong
+    lea long,a1
+    jsr printstr
+    rts 
 *--------------variable subroutines---------------
 resetvar                 *resets all the variables since the checks rely on them being 0
     move.b #0,size
     move.l #0,absdata
     move.l #0,imdata
     move.l #0,absdata2
+    move.l #0,d1
     rts
     
 checkvar
@@ -280,6 +424,7 @@ checkvar2            *needed with the extra variable in case of two absolute add
     cmp.l #0,absdata2
     bne printabsdata2
     rts
+    
 * Put variables and constants here
 cr  equ $0d
 lf  equ $0a
@@ -303,6 +448,9 @@ abswmode dc '(xxx).w',0
 abslmode dc '(xxx).l',0
 space dc.b  '   ',0
 enter dc.b '',cr,lf,0
+ls  dc.b    'ls',0                                                                                                       
+r   dc.b    'r',0
+l   dc.b    'l',0
 done 
     END    START        ; last line of source
 
