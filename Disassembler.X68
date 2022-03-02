@@ -11,9 +11,10 @@ START:                  ; first instruction of program
 
 *------------testing address---------------
     LEA     $100c,A4  use these 2 address' for testing specific parts of the memory. a4 = beginning. a5 = end
-    LEA     $1016,A5  
+    LEA     $101a,A5  
 *------------------------------------------
     bra scan 
+    
 *------------loop that reads the machine code--------  
 *--------------and converts to binary----------------   
 SCAN                  *sets up the loop that will read the machine code  
@@ -106,7 +107,7 @@ read4bits              *reads 4 bits using the same method as read3bits
 *--------------------OpCode Subroutines---------------
 
 *--------------------lsl memory shift-----------------
-lslsub *checks memory shifts first
+lslsub *checks memory shifts first this only needs to be checked once
     lea $a00a,a2
     jsr read3bits
     cmp #2,d3
@@ -194,10 +195,168 @@ lsl2cont
     
     jsr checkvar   
     jsr checkvar2
-    bra scan    
-
-*---------------asl sub mem shift-----------
+    bra scan  
+    
+*-------------------asl memory subroutine--------
 aslsub
+    
+aslcont *checking specific bits 11-8. Can be 0 or 1. also need to check bits 7 and 6 to make sure they are = to 3
+    jsr resetvar
+    lea $a004,a2
+    jsr read4bits *get bits 11-8
+    cmp #1,d3
+    bgt aslsub2   *branch if greater than 1
+    jsr read2bits *get bits 7-6
+    cmp #3,d3
+    bne aslsub2   *validation is done now. It has to be asl or asr
+    
+    lea as,a1     *print opcode
+    jsr printstr
+    
+    move.b $a007,d3 *print left or right shift
+    jsr printLorR
+    
+    jsr printspace
+      
+    lea $a00a,a2    *print EA
+    jsr read3bits
+    jsr sourcesub
+    
+    jsr checkvar    *print any absolute or immediete data
+    jsr checkvar2
+    bra scan
+ 
+*----------------as register subroutine------------   
+aslsub2
+    
+    jsr resetvar
+    lea $a008,a2   checkinng bits 7-6
+    jsr read2bits
+    cmp #3,d3
+    beq  rolsub
+     
+    lea $a00b,a2   checking bits 4-3
+    jsr read2bits
+    cmp #0,d3
+    bne rolsub
+    
+    lea as,a1      *validation is done print out
+    jsr printstr    
+    
+    lea $a007,a2
+    jsr read1bit
+    jsr printLorR
+    
+    jsr read2bits
+    jsr printSize
+    cmp.b #0,(a2)    *check if its immediete data stored or a register in bits 11-9
+    beq imShiftasl    * branch if immediete data
+    
+    lea $a004,a2
+    jsr read3bits
+    move.b d3,d1
+    jsr dnsub
+    bra asl2cont
+    
+imShiftasl  
+    lea $a004,a2
+    jsr read3bits  
+    move.l d3,imdata
+    lea datamode,a1
+    jsr printstr
+    
+asl2cont    
+    lea comma,a1
+    jsr printstr
+    
+    lea $a00d,a2
+    jsr read3bits
+    move.b d3,d1
+    jsr dnsub
+    
+    jsr checkvar   
+    jsr checkvar2
+    
+    bra scan
+    
+*--------------ror memory rotate-------------------
+rolsub
+    jsr resetvar
+    lea $a004,a2
+    jsr read4bits *get bits 11-8
+    cmp #7,d3
+    bgt rolsub2   *greater than 7
+    cmp #6,d3
+    blt rolsub2   *less than 6
+    jsr read2bits *get bits 7-6
+    cmp #3,d3
+    bne rolsub2  *validation is done now. It has to be rol or ror
+    
+    lea ro,a1     *print opcode
+    jsr printstr
+    
+    move.b $a007,d3 *print left or right shift
+    jsr printLorR
+    
+    jsr printspace
+      
+    lea $a00a,a2    *print EA
+    jsr read3bits
+    jsr sourcesub
+    
+    jsr checkvar    *print any absolute or immediete data
+    jsr checkvar2
+    bra scan
+*--------------for register rotate---------------
+rolsub2
+    jsr resetvar
+    lea $a008,a2   checkinng bits 7-6
+    jsr read2bits
+    cmp #3,d3
+    beq  scan
+     
+    lea $a00b,a2   checking bits 4-3
+    jsr read2bits
+    cmp #3,d3
+    bne scan
+    
+    lea ro,a1      *validation is done print out
+    jsr printstr    
+    
+    lea $a007,a2
+    jsr read1bit
+    jsr printLorR
+    
+    jsr read2bits
+    jsr printSize
+    cmp.b #0,(a2)    *check if its immediete data stored or a register in bits 11-9
+    beq imShiftrol    * branch if immediete data
+    
+    lea $a004,a2
+    jsr read3bits
+    move.b d3,d1
+    jsr dnsub
+    bra rol2cont
+    
+imShiftrol  
+    lea $a004,a2
+    jsr read3bits  
+    move.l d3,imdata
+    lea datamode,a1
+    jsr printstr
+    
+rol2cont    
+    lea comma,a1
+    jsr printstr
+    
+    lea $a00d,a2
+    jsr read3bits
+    move.b d3,d1
+    jsr dnsub
+    
+    jsr checkvar   
+    jsr checkvar2
+    
     bra scan
 *-------------------EA source and destination sub-----
 sourcesub              *subroutine that prepares the data for the general ea subroutine. Used when the 
@@ -448,11 +607,14 @@ abswmode dc '(xxx).w',0
 abslmode dc '(xxx).l',0
 space dc.b  '   ',0
 enter dc.b '',cr,lf,0
-ls  dc.b    'ls',0                                                                                                       
+ls  dc.b    'ls',0   
+as  dc.b    'as',0  
+ro  dc.b    'ro',0                                                                                                  
 r   dc.b    'r',0
 l   dc.b    'l',0
 done 
     END    START        ; last line of source
+
 
 
 
