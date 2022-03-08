@@ -277,6 +277,10 @@ movesub *check to make sure bits 13-12 arent = 0. and that destination mode != 1
     beq moveasub
     cmp #7,d3
     beq movemodeseven
+    cmp #5,d3
+    beq noopcode
+    cmp #6,d3
+    beq noopcode
     bra movecont
     
 movemodeseven
@@ -285,6 +289,12 @@ movemodeseven
     cmp #1,d3
     bgt noopcode       $$
 movecont
+    lea $a00a,a2
+    jsr read3bits
+    cmp #5,d3
+    beq noopcode
+    cmp #6,d3
+    beq noopcode
     lea move,a1
     jsr printstr
     move.b size,d3
@@ -1393,6 +1403,7 @@ done
 
 
     END    START        ; last line of source
+
 
 
 
