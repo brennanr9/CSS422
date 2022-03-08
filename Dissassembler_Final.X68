@@ -864,7 +864,7 @@ rtssub
 nopsub  
     cmp #1,d3
     bne leasub
-    lea nopsub,a1
+    lea nop,a1
     jsr printstr
     bra scan
 *-------------------lea sub-----------------------
