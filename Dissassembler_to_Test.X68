@@ -98,7 +98,9 @@ DISP_MESSG  LEA     BANNER,A1
             TRAP    #15 
             RTS
 
-START:      JSR     DISP_MESSG
+START:      jsr     clearreg
+            jsr     clearscreen
+            JSR     DISP_MESSG
 
             LEA     PROMPT_S,A1
             MOVE.B  #14,D0
@@ -428,7 +430,7 @@ label4
 *------------loop that reads the machine code--------  
 *--------------and converts to binary----------------   
 SCAN                  *sets up the loop that will read the machine code  
-    CMP     A5,A4     *have we gone through all the memory. a5 is the end point and a4 is the beginning. We can change this to check differently in the future
+    CMP.L     A5,A4     *have we gone through all the memory. a5 is the end point and a4 is the beginning. We can change this to check differently in the future
     BGT     restartsub      *if so we are done!
     CMP.B   #0,OUTLOOP
     BEQ     continuesub
@@ -1524,6 +1526,14 @@ checkvar2            *needed with the extra variable in case of two absolute add
     bne printabsdata2
     rts
 resetoutputloop
+    jsr clearscreen
+    lea banner,a1
+    jsr printstr
+    jsr newline
+    jsr newline
+    jsr newline
+    jsr newline
+    jsr newline
     move.b #15,OUTLOOP
     bra scan
 continuesub
@@ -1566,6 +1576,12 @@ restartsub
     lea erroryn,a1
     jsr printstr
     bra restartsub
+
+clearscreen
+    move.b #11,d0
+    move.w #$FF00,d1
+    trap   #15
+    rts
        
 
 * Put variables and constants here
