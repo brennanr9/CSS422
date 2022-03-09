@@ -209,9 +209,11 @@ OpCodeSearch
     trap    #15
     jsr printspace
     
-    
     lea $a000,a2
     jsr read4bits
+    
+    cmp #5,d3
+    beq addqsub
     cmp #4,d3
     blt movesub
     cmp #7,d3
@@ -725,6 +727,51 @@ eafirst
     lea $a00a,a2
     jsr read3bits 
     jsr sourcesub
+    jsr checkvar
+    bra scan
+*----------------------addq sub---------------------
+addqsub *copy of moveq pretty much
+    jsr resetvar
+    move.l absdata,d0
+    lea $a00a,a2
+    jsr read3bits
+    cmp #5,d3
+    beq noopcode
+    cmp #6,d3
+    beq noopcode
+    cmp #7,d3
+    beq mode7addq
+    bra addqcont
+mode7addq
+    jsr read3bits
+    cmp #1,d3
+    bgt noopcode
+addqcont
+    lea $a007,a2
+    move.b (a2)+,d3
+    cmp #0,d3
+    bne noopcode       $$
+    move.l absdata,d0
+    jsr read2bits
+    move.b d3,size
+    lea $a004,a2
+    jsr read3bits
+    move.l absdata,d0
+    jsr convertdata
+    move.l d3,imdata
+    move.l absdata,d0
+    lea addq,a1
+    jsr printstr
+    jsr printsize2
+    lea datamode,a1
+    jsr printstr
+    lea comma,a1
+    jsr printstr
+    move.l absdata,d0
+    lea $a00a,a2
+    jsr read3bits
+    jsr sourcesub
+    move.l absdata,d0
     jsr checkvar
     bra scan
 *----------------------addsub------------------------
@@ -1306,6 +1353,14 @@ restartsub
     jsr printstr
     bra restartsub
 
+convertdata
+    cmp #0,d3
+    beq change8
+    rts
+change8
+    move.b #8,d3
+    rts
+
 clearscreen
     move.b #11,d0
     move.w #$FF00,d1
@@ -1359,6 +1414,7 @@ add dc.b    'add',0
 lea dc.b    'lea',0
 move dc.b   'move',0
 moveq dc.b  'moveq',0
+addq dc.b   'addq',0
 or dc.b     'or',0
 ls  dc.b    'ls',0   
 as  dc.b    'as',0  
@@ -1403,6 +1459,7 @@ done
 
 
     END    START        ; last line of source
+
 
 
 
